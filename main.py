@@ -1,14 +1,12 @@
 import importlib
 from common import utils
 
-# TODO Rename the package
-utils.unload_packages(silent=True, package="template")
-importlib.import_module("template")
-# TODO rename app
-from template.MayaTool import MayaTool
+utils.unload_packages(silent=True, package="renderer_diagnosis")
+importlib.import_module("renderer_diagnosis")
+from renderer_diagnosis.RendererDiagnosis import RendererDiagnosis
 try:
-    app.close()
+    rend_diagnos.close()
 except:
     pass
-app = MayaTool()
-app.show()
+rend_diagnos = RendererDiagnosis()
+rend_diagnos.show()

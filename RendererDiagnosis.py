@@ -21,18 +21,15 @@ from common.Prefs import *
 
 # ######################################################################################################################
 
-# TODO Change the prefs name for this project
-_FILE_NAME_PREFS = "maya_tool"
+_FILE_NAME_PREFS = "renderer_diagnosis"
 
 # ######################################################################################################################
 
 
-# TODO change class name
-class MayaTool(QDialog):
+class RendererDiagnosis(QDialog):
 
     def __init__(self, prnt=wrapInstance(int(omui.MQtUtil.mainWindow()), QWidget)):
-        # TODO change class name
-        super(MayaTool, self).__init__(prnt)
+        super(RendererDiagnosis, self).__init__(prnt)
         
         # Common Preferences (common preferences on all tools)
         self.__common_prefs = Prefs()
@@ -46,13 +43,12 @@ class MayaTool(QDialog):
         self.__ui_height = 300
         self.__ui_min_width = 300
         self.__ui_min_height = 200
-        self.__ui_pos = QDesktopWidget().availableGeometry().center() - QPoint(self.__ui_width,self.__ui_height)/2
+        self.__ui_pos = QDesktopWidget().availableGeometry().center() - QPoint(self.__ui_width, self.__ui_height)/2
 
         self.__retrieve_prefs()
 
         # name the window
-        # TODO change window name
-        self.setWindowTitle("Maya Tool")
+        self.setWindowTitle("Renderer Diagnosis")
         # make the window a "tool" in Maya's eyes so that it stays on top when you click off
         self.setWindowFlags(QtCore.Qt.Tool)
         # Makes the object get deleted from memory, not just hidden, when it is closed.
@@ -84,7 +80,7 @@ class MayaTool(QDialog):
 
         if "window_pos" in self.__prefs:
             pos = self.__prefs["window_pos"]
-            self.__ui_pos = QPoint(pos["x"],pos["y"])
+            self.__ui_pos = QPoint(pos["x"], pos["y"])
 
     def showEvent(self, arg__1: QShowEvent) -> None:
         """
