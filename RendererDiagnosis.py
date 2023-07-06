@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+from enum import Enum
 
 from PySide2 import QtCore
 from PySide2 import QtGui
@@ -34,7 +35,55 @@ _GRADIENT_COLOR = [
     (1, 120, 0, 0)
 ]
 
+
 # ######################################################################################################################
+
+class ListSort:
+    def __init__(self, index, order):
+        """
+        Contructor
+        :param index
+        :param order
+        """
+        self.__index = index
+        self.__order = order
+
+    def get_index(self):
+        """
+        Getter of the index in the Table
+        :return: index
+        """
+        return self.__index
+
+    def get_order(self):
+        """
+        Getter of the order of the sort (True: Ascending, False: Descending)
+        :return: order
+        """
+        return self.__order
+
+    def set_index(self, index):
+        """
+        Setter of the index
+        :param index
+        :return:
+        """
+        self.__index = index
+
+    def set_order(self, order):
+        """
+        Setter of the order
+        :param order
+        :return:
+        """
+        self.__order = order
+
+    def toggle_order(self):
+        """
+        Toggle the state of the order
+        :return:
+        """
+        self.__order = not self.__order
 
 
 class ElementPolygon:
@@ -144,37 +193,37 @@ class ElementPolygon:
         """
         self.__children = sorted(self.__children, key=lambda el: el.get_polygons(), reverse=True)
 
-class RendererDiagnosis(QDialog):
 
+class RendererDiagnosis(QDialog):
     @staticmethod
-    def val_to_color(max, val):
+    def val_to_color(max_val, val):
         """
         Convert a value to a color according to a gradient and the max value
-        :param max
+        :param max_val
         :param val
         :return: color RGB
         """
         if val == 0:
             gradient_val = _GRADIENT_COLOR[0]
-            return gradient_val[1],gradient_val[2],gradient_val[3]
-        frac = val / max
+            return gradient_val[1], gradient_val[2], gradient_val[3]
+        frac = val / max_val
         nb_val_gradient = len(_GRADIENT_COLOR)
         index = None
-        for i in range(nb_val_gradient-1, -1, -1):
+        for i in range(nb_val_gradient - 1, -1, -1):
             if _GRADIENT_COLOR[i][0] < frac:
                 index = i
                 break
-        if index is None: return 0,0,0
+        if index is None: return 0, 0, 0
         val_gradient_min = _GRADIENT_COLOR[index]
-        val_gradient_max = _GRADIENT_COLOR[index+1]
+        val_gradient_max = _GRADIENT_COLOR[index + 1]
         frac_min = val_gradient_min[0]
         frac_max = val_gradient_max[0]
-        frac_adapted = (frac - frac_min) * (1/(frac_max - frac_min))
-        one_minus_frac = 1-frac_adapted
-        r = val_gradient_min[1]*one_minus_frac + val_gradient_max[1]*frac_adapted
-        g = val_gradient_min[2]*one_minus_frac + val_gradient_max[2]*frac_adapted
-        b = val_gradient_min[3]*one_minus_frac + val_gradient_max[3]*frac_adapted
-        return r,g,b
+        frac_adapted = (frac - frac_min) * (1 / (frac_max - frac_min))
+        one_minus_frac = 1 - frac_adapted
+        r = val_gradient_min[1] * one_minus_frac + val_gradient_max[1] * frac_adapted
+        g = val_gradient_min[2] * one_minus_frac + val_gradient_max[2] * frac_adapted
+        b = val_gradient_min[3] * one_minus_frac + val_gradient_max[3] * frac_adapted
+        return r, g, b
 
     @staticmethod
     def format_val(val):
@@ -187,10 +236,10 @@ class RendererDiagnosis(QDialog):
         :return: beautified value
         """
         if val >= 1000000:
-            # More than 1000000 then display : _._M
+            # More than 1000000 -> _._M
             return str(round(val / 1000000, 1)) + "M"
         elif val >= 1000:
-            # More than 1000 then display : _._K
+            # More than 1000 -> _._K
             return str(round(val / 1000, 1)) + "K"
         else:
             # Else display the value
@@ -225,6 +274,7 @@ class RendererDiagnosis(QDialog):
         self.__standins_auto_instance = []
         self.__hidden_objects = []
         self.__diagnose_hidden_element = False
+        self.__list_sort = ListSort(3, True)
 
         # UI attributes
         self.__ui_font = QFont("Segoe UI", 10)
@@ -257,6 +307,7 @@ class RendererDiagnosis(QDialog):
         pos = self.pos()
         self.__prefs["window_pos"] = {"x": pos.x(), "y": pos.y()}
         self.__prefs["diagnose_hidden_element"] = self.__diagnose_hidden_element
+        self.__prefs["list_sort"] = {"index": self.__list_sort.get_index(), "order":self.__list_sort.get_order()}
 
     def __retrieve_prefs(self):
         """
@@ -273,8 +324,12 @@ class RendererDiagnosis(QDialog):
             self.__ui_pos = QPoint(pos["x"], pos["y"])
 
         if "diagnose_hidden_element" in self.__prefs:
-            print(self.__prefs["diagnose_hidden_element"])
             self.__diagnose_hidden_element = self.__prefs["diagnose_hidden_element"]
+
+        if "list_sort" in self.__prefs:
+            list_sort_data = self.__prefs["list_sort"]
+            self.__list_sort.set_index(list_sort_data["index"])
+            self.__list_sort.set_order(list_sort_data["order"])
 
     def hideEvent(self, arg__1: QCloseEvent) -> None:
         """
@@ -301,7 +356,7 @@ class RendererDiagnosis(QDialog):
         # Button layout
         btn_lyt = QHBoxLayout()
         btn_lyt.setAlignment(Qt.AlignCenter)
-        btn_lyt.setContentsMargins(6,6,6,3)
+        btn_lyt.setContentsMargins(6, 6, 6, 3)
         main_lyt.addLayout(btn_lyt)
 
         # Diagnose scene button
@@ -323,7 +378,7 @@ class RendererDiagnosis(QDialog):
 
         # Grid Layout
         content_lyt = QGridLayout()
-        main_lyt.addLayout(content_lyt,1)
+        main_lyt.addLayout(content_lyt, 1)
 
         content_lyt.addWidget(QLabel("Hierarchy"), 0, 0, alignment=Qt.AlignCenter)
         content_lyt.addWidget(QLabel("List"), 0, 1, alignment=Qt.AlignCenter)
@@ -334,7 +389,7 @@ class RendererDiagnosis(QDialog):
         self.__ui_tree_polygons = QtWidgets.QTreeWidget()
         self.__ui_tree_polygons.setColumnCount(3)
         self.__ui_tree_polygons.setAlternatingRowColors(True)
-        self.__ui_tree_polygons.setHeaderLabels(["Element", "Complexity", "Polygons"])
+        self.__ui_tree_polygons.setHeaderLabels(["Element", "Complexity", "Poly"])
         self.__ui_tree_polygons.setFont(self.__ui_font)
         header = self.__ui_tree_polygons.header()
         header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
@@ -344,16 +399,19 @@ class RendererDiagnosis(QDialog):
         content_lyt.addWidget(self.__ui_tree_polygons, 1, 0)
 
         # List
-        self.__ui_list_polygons = QTableWidget(0, 4)
+        self.__ui_list_polygons = QTableWidget(0, 5)
         self.__ui_list_polygons.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.__ui_list_polygons.verticalHeader().hide()
         self.__ui_list_polygons.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.__ui_list_polygons.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__ui_list_polygons.setHorizontalHeaderLabels(["Element", "Subdivisions", "Complexity", "Polygons"])
+        self.__ui_list_polygons.setHorizontalHeaderLabels(
+            ["Element", "Subdiv", "Dist x Poly", "Complexity", "Poly"])
         self.__ui_list_polygons.setShowGrid(False)
         self.__ui_list_polygons.setAlternatingRowColors(True)
         self.__ui_list_polygons.setFont(self.__ui_font)
         horizontal_header = self.__ui_list_polygons.horizontalHeader()
+        horizontal_header.sectionClicked.connect(self.__on_clicked_header_list)
+        horizontal_header.setSortIndicatorShown(True)
         horizontal_header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         horizontal_header.setSectionResizeMode(0, QHeaderView.Stretch)
         self.__ui_list_polygons.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -364,10 +422,10 @@ class RendererDiagnosis(QDialog):
         linear_gradient_lyt = QHBoxLayout()
         linear_gradient_lyt.setAlignment(Qt.AlignCenter)
         linear_gradient_lyt.setSpacing(15)
-        linear_gradient_lyt.setContentsMargins(10,10,10,10)
+        linear_gradient_lyt.setContentsMargins(10, 10, 10, 10)
         self.__ui_linear_gradient = QWidget()
         self.__ui_linear_gradient.setFixedHeight(8)
-        self.__ui_linear_gradient.setSizePolicy(QSizePolicy.MinimumExpanding,QSizePolicy.Minimum)
+        self.__ui_linear_gradient.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Minimum)
         linear_gradient_lyt.addWidget(QLabel("High"))
         linear_gradient_lyt.addWidget(self.__ui_linear_gradient)
         linear_gradient_lyt.addWidget(QLabel("Low"))
@@ -380,6 +438,7 @@ class RendererDiagnosis(QDialog):
         """
         self.__ui_hidden_element_cb.setChecked(self.__diagnose_hidden_element)
         self.__refresh_gradient()
+        self.__refresh_list_sorting()
         self.__refresh_list()
         self.__refresh_tree()
 
@@ -390,9 +449,17 @@ class RendererDiagnosis(QDialog):
         """
         css = "background: qlineargradient(x1:0, y1:0.5, x2:1, y2:0.5,"
         for stop, r, g, b in _GRADIENT_COLOR:
-            css+="stop:"+str(1-stop)+" rgb("+str(r)+","+str(g)+","+str(b)+"),"
+            css += "stop:" + str(1 - stop) + " rgb(" + str(r) + "," + str(g) + "," + str(b) + "),"
         css += ");"
         self.__ui_linear_gradient.setStyleSheet(css)
+
+    def __refresh_list_sorting(self):
+        """
+        Refresh the sorting of the list
+        :return:
+        """
+        self.__ui_list_polygons.horizontalHeader().setSortIndicator(
+            self.__list_sort.get_index(), Qt.AscendingOrder if self.__list_sort.get_order() else Qt.DescendingOrder)
 
     def __refresh_list(self):
         """
@@ -402,21 +469,57 @@ class RendererDiagnosis(QDialog):
         if self.__tree_obj_poly is None: return
         scene_polygons = self.__tree_obj_poly.get_polygons()
         self.__ui_list_polygons.setRowCount(0)
-        list_obj_polygons = sorted(list(self.__dict_obj_poly.items()), key=lambda el: el[1][0], reverse=True)
+        list_obj_polygons = sorted(list(self.__dict_obj_poly.items()), key=lambda el: el[1]["polygons"], reverse=True)
+        list_sorted_dist_poly = sorted(list(self.__dict_obj_poly.items()),
+                                             key=lambda el: (el[1]["dist_poly"],el[1]["polygons"]), reverse=True)
         row_index = 0
-        max_poly = list_obj_polygons[0][1][0] if len(list_obj_polygons) > 0 else 0
-        for (node_name, (polygons, parent, subdivisions)) in list_obj_polygons:
+        max_poly = list_obj_polygons[0][1]["polygons"] if len(list_obj_polygons) > 0 else 0
+        max_dist_poly = list_sorted_dist_poly[0][1]["dist_poly"] if len(
+            list_sorted_dist_poly) > 0 else 0
+
+        index_sort = self.__list_sort.get_index()
+        order_sort = self.__list_sort.get_order()
+
+        if index_sort == 1:
+            used_list = sorted(list(self.__dict_obj_poly.items()),
+                               key=lambda el: (el[1]["subdiv"],el[1]["polygons"]), reverse=order_sort)
+        elif index_sort==2:
+            used_list = list_sorted_dist_poly if order_sort else \
+                sorted(list(self.__dict_obj_poly.items()),
+                       key=lambda el: (el[1]["dist_poly"],el[1]["polygons"]))
+        else:
+            used_list = list_obj_polygons if order_sort else \
+                sorted(list(self.__dict_obj_poly.items()), key=lambda el: el[1]["polygons"])
+
+        for node_name, data in used_list:
+            polygons = data["polygons"]
+            dist_poly = data["dist_poly"]
+            subdivisions = data["subdiv"]
             self.__ui_list_polygons.insertRow(row_index)
             # Element
-            elem_item = QTableWidgetItem("  "+node_name)
+            elem_item = QTableWidgetItem("  " + node_name)
             elem_item.setToolTip(node_name)
-            elem_item.setData(Qt.UserRole, (node_name, parent))
+            elem_item.setData(Qt.UserRole, (node_name, data["maya_obj"]))
             self.__ui_list_polygons.setItem(row_index, 0, elem_item)
             # Subdivisions
             if subdivisions is not None:
                 subdivisions_item = QTableWidgetItem(str(subdivisions))
                 subdivisions_item.setTextAlignment(Qt.AlignCenter)
                 self.__ui_list_polygons.setItem(row_index, 1, subdivisions_item)
+            # Dist/Poly
+            if dist_poly is not None:
+                r, g, b = RendererDiagnosis.val_to_color(max_dist_poly, dist_poly)
+                dist_poly_widget_wrapper = QWidget()
+                dist_poly_widget = QWidget()
+                dist_poly_widget.setStyleSheet("background-color:rgb(" + str(r) + "," + str(g) + "," + str(b) + ");")
+                dist_poly_widget.setFixedSize(QSize(12, 12))
+                dist_poly_layout = QHBoxLayout()
+                dist_poly_layout.setContentsMargins(0, 0, 20, 0)
+                dist_poly_layout.addStretch()
+                dist_poly_layout.addWidget(QLabel(str(round(dist_poly * 100 / max_dist_poly, 1)) + "%"))
+                dist_poly_layout.addWidget(dist_poly_widget)
+                dist_poly_widget_wrapper.setLayout(dist_poly_layout)
+                self.__ui_list_polygons.setCellWidget(row_index, 2, dist_poly_widget_wrapper)
             # Complexity
             r, g, b = RendererDiagnosis.val_to_color(max_poly, polygons)
             icon_widget_wrapper = QWidget()
@@ -424,16 +527,16 @@ class RendererDiagnosis(QDialog):
             icon_widget.setStyleSheet("background-color:rgb(" + str(r) + "," + str(g) + "," + str(b) + ");")
             icon_widget.setFixedSize(QSize(12, 12))
             icon_layout = QHBoxLayout()
-            icon_layout.setContentsMargins(0, 0, 10, 0)
+            icon_layout.setContentsMargins(0, 0, 20, 0)
             icon_layout.addStretch()
             icon_layout.addWidget(QLabel(str(round(polygons * 100 / scene_polygons, 1)) + "%"))
             icon_layout.addWidget(icon_widget)
             icon_widget_wrapper.setLayout(icon_layout)
-            self.__ui_list_polygons.setCellWidget(row_index, 2, icon_widget_wrapper)
+            self.__ui_list_polygons.setCellWidget(row_index, 3, icon_widget_wrapper)
             # Polygons
             polygons_item = QTableWidgetItem(RendererDiagnosis.format_val(polygons))
             polygons_item.setTextAlignment(Qt.AlignCenter)
-            self.__ui_list_polygons.setItem(row_index, 3, polygons_item)
+            self.__ui_list_polygons.setItem(row_index, 4, polygons_item)
             row_index += 1
 
     def __refresh_tree(self):
@@ -474,7 +577,7 @@ class RendererDiagnosis(QDialog):
                 icon_widget.setStyleSheet("background-color:rgb(" + str(r) + "," + str(g) + "," + str(b) + ");")
                 icon_widget.setFixedSize(QSize(12, 12))
                 icon_layout = QHBoxLayout()
-                icon_layout.setContentsMargins(0, 0, 10, 0)
+                icon_layout.setContentsMargins(0, 0, 20, 0)
                 icon_layout.addStretch()
                 icon_layout.addWidget(QLabel(str(round(polygons * 100 / scene_polygons, 1)) + "%"))
                 icon_layout.addWidget(icon_widget)
@@ -511,6 +614,21 @@ class RendererDiagnosis(QDialog):
         :return:
         """
         self.__diagnose_hidden_element = state != Qt.Unchecked
+
+    def __on_clicked_header_list(self, index):
+        """
+        Change the sorting of the list on click on the header of the list
+        :param index: index column
+        :return:
+        """
+        if index in [1,2,3,4]:
+            if self.__list_sort.get_index() == index:
+                self.__list_sort.toggle_order()
+            else:
+                self.__list_sort.set_index(index)
+                self.__list_sort.set_order(True)
+            self.__refresh_list()
+        self.__refresh_list_sorting()
 
     def __fix_auto_instancing(self):
         """
@@ -610,6 +728,14 @@ class RendererDiagnosis(QDialog):
         :return:
         """
         self.__dict_obj_poly.clear()
+
+        camera_trsf = None
+        cameras = pm.ls(cameras=True)
+        for camera in cameras:
+            if pm.getAttr(camera + '.renderable'):
+                camera_trsf = camera.getTransform()
+                break
+
         AiASSLoad(self.__temp_path)
         univ = AiUniverseGetNodeIterator(AI_NODE_SHAPE)
         while not AiNodeIteratorFinished(univ):
@@ -627,9 +753,9 @@ class RendererDiagnosis(QDialog):
             else:
                 continue
 
-            subdiv_iterations  = AiNodeGetInt(node, "subdiv_iterations")
+            subdiv_iterations = AiNodeGetInt(node, "subdiv_iterations")
             if subdiv_iterations > 0:
-                nsides = nsides * pow(4,subdiv_iterations)
+                nsides = nsides * pow(4, subdiv_iterations)
             else:
                 subdiv_iterations = None
 
@@ -639,15 +765,25 @@ class RendererDiagnosis(QDialog):
                 parent_name = "/" + parent.name() if parent is not None else ""
             else:
                 parent_request = pm.ls(node_name.replace("/", "|"))
-                parent = parent_request[0] if len(parent_request)>0 else None
+                parent = parent_request[0].getParent() if len(parent_request) > 0 else None
                 parent_name = ""
+
+            dist_poly = None
+            if camera_trsf is not None and parent is not None:
+                dist = (camera_trsf.getBoundingBox(space="world").center() - parent.getBoundingBox(space="world").center()).length()
+                dist_poly = dist * nsides
 
             if is_curves:
                 name = "/".join((parent_name + node_name).split("/"))
             else:
                 name = "/".join((parent_name + node_name).split("/")[:-1])
 
-            self.__dict_obj_poly[name] = (nsides, parent, subdiv_iterations)
+            self.__dict_obj_poly[name] = {
+                "polygons": nsides,
+                "maya_obj": parent,
+                "subdiv": subdiv_iterations,
+                "dist_poly": dist_poly
+            }
         AiNodeIteratorDestroy(univ)
         AiEnd()
         AiBegin()
@@ -657,6 +793,7 @@ class RendererDiagnosis(QDialog):
         Create the tree structure of ElementPolygon
         :return:
         """
+
         def __insert_in_tree(tree, obj_path_array, maya_object, polygon_count, nb_subdivisions):
             """
             insert in the tree the hierarchy for one leaf
@@ -676,15 +813,16 @@ class RendererDiagnosis(QDialog):
             tree.set_subdivisions(nb_subdivisions)
 
         self.__tree_obj_poly = ElementPolygon("root", "/")
-        for obj_path, (polygons, maya_obj, subdivisions) in self.__dict_obj_poly.items():
+        for obj_path, data in self.__dict_obj_poly.items():
             objs = obj_path.split('/')[1:]
-            __insert_in_tree(self.__tree_obj_poly, objs, maya_obj, polygons, subdivisions)
+            __insert_in_tree(self.__tree_obj_poly, objs, data["maya_obj"], data["polygons"], data["subdiv"])
 
     def __compute_polygons_parent(self):
         """
         Compute values for nodes in the tree that aren't leaves
         :return:
         """
+
         def __compute_polygons(item):
             """
             Recursive function to compute values for the whole tree
@@ -708,6 +846,7 @@ class RendererDiagnosis(QDialog):
         Sort each children array for each node in the tree
         :return:
         """
+
         def __sort_tree_recursive_aux(elem):
             """
             Recursive function to sort the whole tree
@@ -720,7 +859,7 @@ class RendererDiagnosis(QDialog):
 
         __sort_tree_recursive_aux(self.__tree_obj_poly)
 
-    def __diagnose(self,selected = False):
+    def __diagnose(self, selected=False):
         """
         Execute the diagnosis
         :param selected: diagnose only selected
